@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FraudShield AI — Real-Time Risk Scoring & Decision Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0B1220;
+    --panel: #101A2C;
+    --panel-alt: #16213A;
+    --hairline: #223049;
+    --hairline-soft: #1A2740;
+    --text: #E8EDF5;
+    --text-dim: #8CA0BE;
+    --text-faint: #4E6386;
+    --safe: #34D399;
+    --safe-dim: #1C4A3B;
+    --review: #F5A623;
+    --review-dim: #4A3A16;
+    --block: #EF4444;
+    --block-dim: #4A1E1E;
+    --accent: #33D6C0;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; }
+  body {
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(51,214,192,0.08), transparent 45%),
+      radial-gradient(circle at 85% 10%, rgba(239,68,68,0.06), transparent 40%);
+  }
+
+  ::selection { background: var(--accent); color: #04231F; }
+
+  button, input, select { font-family: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .wrap { max-width: 1340px; margin: 0 auto; padding: 20px 24px 40px; }
+
+  /* ---------- HEADER ---------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 18px 22px; background: var(--panel); border: 1px solid var(--hairline);
+    border-radius: 10px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand h1 {
+    font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: 0.2px;
+  }
+  .brand .mark { color: var(--accent); }
+  .brand .sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .pulse-box { flex: 1; min-width: 220px; max-width: 420px; height: 44px; position: relative; }
+  .pulse-box svg { width: 100%; height: 100%; display: block; }
+
+  .status-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .status { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
+  .dot.live { animation: pulseDot 1.6s infinite; }
+  .dot.paused { background: var(--text-faint); animation: none; }
+  .mode-badge { font-family: var(--font-mono); font-size: 9.5px; color: var(--accent); background: rgba(51,214,192,0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(51,214,192,0.25); }
+
+  @keyframes pulseDot {
+    0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
+    70% { box-shadow: 0 0 0 8px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+  }
+
+  /* ---------- STATS BAR ---------- */
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1px;
+    background: var(--hairline); border: 1px solid var(--hairline); border-radius: 10px;
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .stat { background: var(--panel); padding: 14px 16px; }
+  .stat .num { font-family: var(--font-mono); font-size: 22px; font-weight: 700; }
+  .stat .lbl { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 3px; }
+  .stat.safe .num { color: var(--safe); }
+  .stat.review .num { color: var(--review); }
+  .stat.block .num { color: var(--block); }
+  .controls { background: var(--panel-alt); padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    background: var(--accent); color: #04231F; border: none; font-family: var(--font-mono); font-weight: 700; font-size: 12px;
+    padding: 9px 15px; border-radius: 6px; letter-spacing: 0.3px; transition: opacity .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn.secondary { background: transparent; color: var(--text-dim); border: 1px solid var(--hairline); font-weight: 500; }
+  .btn.secondary:hover { color: var(--text); border-color: var(--text-faint); }
+
+  /* ---------- MAIN GRID ---------- */
+  .main { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+  .panel-head {
+    padding: 13px 16px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-head h2 { font-family: var(--font-display); font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }
+  .panel-head .tag { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .filter-bar {
+    display: flex; gap: 6px; padding: 8px 16px; background: var(--panel-alt); border-bottom: 1px solid var(--hairline-soft);
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .filter-btn {
+    background: transparent; color: var(--text-dim); border: 1px solid transparent; padding: 4px 10px; border-radius: 4px; font-size: 11px;
+  }
+  .filter-btn:hover { color: var(--text); }
+  .filter-btn.active { background: var(--hairline); color: var(--accent); border-color: var(--hairline); font-weight: 600; }
+
+  /* ---------- FEED ---------- */
+  .feed { max-height: 560px; overflow-y: auto; }
+  .feed::-webkit-scrollbar { width: 8px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 4px; }
+
+  .row {
+    display: grid; grid-template-columns: 70px 1fr 90px 78px; gap: 10px; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--hairline-soft); cursor: pointer;
+    font-family: var(--font-mono); font-size: 12px; transition: background .12s;
+  }
+  .row:hover { background: var(--panel-alt); }
+  .row.selected { background: var(--panel-alt); box-shadow: inset 3px 0 0 var(--accent); }
+  .row.enter { animation: rowIn .4s ease-out; }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .row .time { color: var(--text-faint); font-size: 11px; }
+  .row .meta { min-width: 0; }
+  .row .amt { font-weight: 600; }
+  .row .merch { color: var(--text-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .ctx { color: var(--text-faint); font-size: 10.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .score { font-weight: 700; font-size: 13px; text-align: right; }
+  .score.safe { color: var(--safe); }
+  .score.review { color: var(--review); }
+  .score.block { color: var(--block); }
+
+  .badge {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    padding: 4px 7px; border-radius: 4px; text-align: center; white-space: nowrap;
+  }
+  .badge.safe { color: var(--safe); background: var(--safe-dim); }
+  .badge.review { color: var(--review); background: var(--review-dim); }
+  .badge.block { color: var(--block); background: var(--block-dim); }
+
+  .empty { padding: 40px 20px; text-align: center; color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; }
+
+  /* ---------- RECEIPT (Investigator SHAP view) ---------- */
+  .receipt-wrap { padding: 18px; }
+  .receipt {
+    background: #0E1728;
+    border: 1px dashed var(--hairline);
+    font-family: var(--font-mono);
+    position: relative;
+    padding: 20px 18px 18px;
+    clip-path: polygon(
+      0% 6px, 3% 0%, 6% 6px, 9% 0%, 12% 6px, 15% 0%, 18% 6px, 21% 0%, 24% 6px, 27% 0%,
+      30% 6px, 33% 0%, 36% 6px, 39% 0%, 42% 6px, 45% 0%, 48% 6px, 51% 0%, 54% 6px, 57% 0%,
+      60% 6px, 63% 0%, 66% 6px, 69% 0%, 72% 6px, 75% 0%, 78% 6px, 81% 0%, 84% 6px, 87% 0%,
+      90% 6px, 93% 0%, 96% 6px, 99% 0%, 100% 6px,
+      100% 100%, 0% 100%
+    );
+  }
+  .receipt-empty { padding: 50px 22px; text-align: center; color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; line-height: 1.7; }
+  .receipt-empty .big { font-size: 26px; display: block; margin-bottom: 10px; color: var(--text-faint); }
+
+  .r-head { text-align: center; border-bottom: 1px dashed var(--hairline); padding-bottom: 12px; margin-bottom: 12px; }
+  .r-head .id { font-size: 11px; color: var(--text-faint); letter-spacing: 1px; }
+  .r-head .merch { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 4px 0 2px; }
+  .r-head .amt { font-size: 13px; color: var(--text-dim); }
+
+  .r-group { margin-bottom: 12px; }
+  .r-group-lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent);
+    margin-bottom: 6px; display: flex; justify-content: space-between;
+  }
+  .r-line {
+    display: flex; align-items: baseline; gap: 6px; font-size: 11px; color: var(--text-dim); padding: 2.5px 0;
+  }
+  .r-line .lbl { flex-shrink: 1; min-width: 0; }
+  .r-line .dots { flex: 1; border-bottom: 1px dotted var(--hairline); transform: translateY(-3px); min-width: 8px; }
+  .r-line .pts { flex-shrink: 0; font-weight: 600; }
+  .r-line .pts.pos { color: var(--block); }
+  .r-line .pts.neg { color: var(--safe); }
+
+  .r-total {
+    border-top: 1px dashed var(--hairline); margin-top: 8px; padding-top: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .r-total .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+  .r-total .val { font-family: var(--font-display); font-size: 30px; font-weight: 700; }
+  .r-total .val.safe { color: var(--safe); }
+  .r-total .val.review { color: var(--review); }
+  .r-total .val.block { color: var(--block); }
+
+  .r-decision {
+    margin-top: 10px; padding: 9px 12px; border-radius: 6px; text-align: center;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .r-decision.safe { background: var(--safe-dim); color: var(--safe); }
+  .r-decision.review { background: var(--review-dim); color: var(--review); }
+  .r-decision.block { background: var(--block-dim); color: var(--block); }
+
+  .r-latency { text-align: center; font-size: 10px; color: var(--text-faint); margin-top: 10px; letter-spacing: 0.3px; }
+
+  /* ---------- MODAL ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(7, 12, 22, 0.8); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--hairline); border-radius: 12px;
+    width: 90%; max-width: 520px; padding: 22px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .modal-head h3 { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); }
+  .modal-close { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; font-family: var(--font-mono); font-size: 11px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: span 2; }
+  .form-group label { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input[type=text], .form-group input[type=number], .form-group select {
+    background: var(--panel-alt); border: 1px solid var(--hairline); color: var(--text); padding: 8px 10px;
+    border-radius: 6px; font-family: var(--font-mono); font-size: 12px;
+  }
+  .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text); cursor: pointer; margin-top: 4px; }
+  .checkbox-group input { accent-color: var(--accent); }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    margin-top: 16px; padding: 16px 18px; border: 1px solid var(--hairline); border-radius: 10px;
+    background: var(--panel); font-size: 12px; color: var(--text-dim); line-height: 1.65;
+  }
+  footer strong { color: var(--text); }
+  .stack-grid {
+    margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-faint);
+  }
+  .stack-grid div span { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>Fraud<span class="mark">Shield</span> AI</h1>
+      <span class="sub">Real-time risk scoring engine</span>
+    </div>
+    <div class="pulse-box"><svg id="pulseSvg" viewBox="0 0 400 44" preserveAspectRatio="none"></svg></div>
+    <div class="status-wrap">
+      <div class="status">
+        <span class="dot live" id="statusDot"></span>
+        <span id="statusText">LIVE STREAM</span>
+      </div>
+      <span class="mode-badge" id="modeBadge">FastAPI SSE Connected</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat safe"><div class="num" id="statSafe">0</div><div class="lbl">Approved</div></div>
+    <div class="stat review"><div class="num" id="statReview">0</div><div class="lbl">Step-up MFA</div></div>
+    <div class="stat block"><div class="num" id="statBlock">0</div><div class="lbl">Blocked</div></div>
+    <div class="controls">
+      <button class="btn" id="simModalBtn">+ Test Custom Txn</button>
+      <button class="btn secondary" id="toggleBtn">Pause</button>
+      <button class="btn secondary" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Live transaction stream</h2>
+        <span class="tag" id="topicTag">Topic: txn.scored (FastAPI)</span>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="safe">Approved</button>
+        <button class="filter-btn" data-filter="review">MFA Challenge</button>
+        <button class="filter-btn" data-filter="block">Blocked</button>
+      </div>
+      <div class="feed" id="feed">
+        <div class="empty" id="feedEmpty">Connecting to live transaction stream…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Investigator alert</h2>
+        <span class="tag">SHAP-style explainability breakdown</span>
+      </div>
+      <div class="receipt-wrap" id="receiptWrap">
+        <div class="receipt-empty">
+          <span class="big">🧾</span>
+          Select any transaction from the stream<br>to view Tree SHAP feature attribution.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <strong>FraudShield AI Architecture.</strong> Powered by FastAPI &amp; XGBoost Tree SHAP explainability. Features are evaluated across three model domains:
+    <div class="stack-grid">
+      <div><span>Tabular</span> → Gradient-boosted tree on amount ratios, channel, and merchant risk</div>
+      <div><span>Graph</span> → Network GNN risk score for device &amp; payee mule-ring clusters</div>
+      <div><span>Sequence</span> → LSTM/Autoencoder biometric typing rhythm &amp; velocity metrics</div>
+      <div><span>Explain</span> → Exact SHAP additive factor attribution served under 50ms</div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Custom Transaction Simulator Modal -->
+<div class="modal-backdrop" id="simModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Inject Custom Transaction</h3>
+      <button class="modal-close" id="simModalClose">&times;</button>
+    </div>
+    <form id="simForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Amount (₹)</label>
+          <input type="number" id="inpAmt" value="85000" required>
+        </div>
+        <div class="form-group">
+          <label>Sender Old Balance (₹)</label>
+          <input type="number" id="inpBalance" value="12000" required>
+        </div>
+        <div class="form-group">
+          <label>Payment Channel</label>
+          <select id="inpChannel">
+            <option value="UPI">UPI</option>
+            <option value="Card · Web checkout">Card · Web checkout</option>
+            <option value="Card · POS">Card · POS</option>
+            <option value="Mobile app transfer" selected>Mobile app transfer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Merchant / Payee</label>
+          <input type="text" id="inpMerch" value="QuickGold Traders">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="inpCat" value="Gift cards / gold">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="inpGeo" value="Lagos, NG (7,840 km away)">
+        </div>
+        <div class="form-group full">
+          <label class="checkbox-group">
+            <input type="checkbox" id="chkHighRisk" checked> High-Risk Merchant Category Policy Flag
+          </label>
+          <label class="checkbox-group">
+            <input type="checkbox" id="chkMule" checked> GNN Flag: Recipient in Mule Ring Cluster
+          </label>
+          <label class="checkbox-group">
+            <input type="checkbox" id="chkDevice" checked> Unrecognized / New Device Fingerprint
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Velocity (5 min)</label>
+          <input type="number" id="inpVel" value="7" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label>Biometric Deviation (σ)</label>
+          <input type="number" step="0.1" id="inpBio" value="3.4" min="0" max="10">
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn secondary" id="simCancelBtn">Cancel</button>
+        <button type="submit" class="btn">Score &amp; Inject</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- State ----------
+  let running = true;
+  let activeFilter = "all";
+  let scored = [], approvedN = 0, reviewN = 0, blockedN = 0;
+  let pulsePoints = new Array(60).fill(4);
+  let selectedId = null;
+  let eventSource = null;
+  let fallbackTimer = null;
+  let isApiConnected = false;
+
+  const $ = id => document.getElementById(id);
+  const rnd = (a,b) => Math.random()*(b-a)+a;
+  const rint = (a,b) => Math.floor(rnd(a,b+1));
+  const fmtINR = n => "₹" + Math.round(n).toLocaleString("en-IN");
+
+  const groupLabel = {
+    tabular: "Transaction pattern · XGBoost tree model",
+    graph: "Network graph · GNN risk signal",
+    sequence: "Behavioral sequence · LSTM / autoencoder"
+  };
+
+  // ---------- Connect SSE / Fallback ----------
+  function initStream() {
+    if (window.EventSource) {
+      connectSSE();
+    } else {
+      startFallbackSimulation();
+    }
+  }
+
+  function connectSSE() {
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource("/api/stream");
+    
+    eventSource.onopen = function() {
+      isApiConnected = true;
+      $("modeBadge").textContent = "FastAPI SSE Stream Connected";
+      $("modeBadge").style.color = "var(--accent)";
+      $("topicTag").textContent = "Kafka Topic: txn.scored (FastAPI)";
+    };
+
+    eventSource.onmessage = function(event) {
+      if (!running) return;
+      try {
+        const txn = JSON.parse(event.data);
+        processIncomingTxn(txn);
+      } catch (e) {
+        console.error("SSE parse error", e);
+      }
+    };
+
+    eventSource.onerror = function() {
+      isApiConnected = false;
+      $("modeBadge").textContent = "Client Engine Simulation";
+      $("modeBadge").style.color = "var(--review)";
+      $("topicTag").textContent = "Local Client Engine";
+      eventSource.close();
+      if (!fallbackTimer) startFallbackSimulation();
+    };
+  }
+
+  function startFallbackSimulation() {
+    clearTimeout(fallbackTimer);
+    if (!running) return;
+    processIncomingTxn(genSyntheticTxn());
+    fallbackTimer = setTimeout(startFallbackSimulation, rint(900, 1600));
+  }
+
+  function genSyntheticTxn() {
+    const isFraud = Math.random() * 100 < 15;
+    const amount = isFraud ? rnd(4000, 220000) : rnd(80, 18000);
+    const score = isFraud ? rint(68, 98) : rint(2, 34);
+    const decision = score >= 70 ? "block" : (score >= 35 ? "review" : "safe");
+
+    return {
+      id: "TXN-" + rint(5000, 9999),
+      time: new Date().toLocaleTimeString("en-IN", { hour12: false }),
+      amount: amount,
+      merch: { name: isFraud ? "QuickGold Traders" : "Amazon Pay", cat: isFraud ? "Gift cards / gold" : "Marketplace" },
+      channel: isFraud ? "Mobile app transfer" : "UPI",
+      geo: isFraud ? "Lagos, NG (7,840 km away)" : "Bengaluru, IN (home)",
+      device: isFraud ? "New unrecognized device" : "Known device",
+      score: score,
+      decision: decision,
+      factors: [
+        { g: "tabular", label: isFraud ? `Amount is ${(rnd(2.1, 4.5)).toFixed(1)}x account balance` : "Amount within standard balance range", pts: isFraud ? 24 : -10 },
+        { g: "graph", label: isFraud ? "Recipient sits inside suspected mule-ring cluster" : "Device & payee inside established trust graph", pts: isFraud ? 22 : -12 },
+        { g: "sequence", label: isFraud ? "Typing rhythm deviates 3.2σ from baseline" : "Behavioral biometrics match profile", pts: isFraud ? 18 : -8 }
+      ],
+      groups: { tabular: isFraud ? 24 : -10, graph: isFraud ? 22 : -12, sequence: isFraud ? 18 : -8 },
+      latency: rint(35, 75)
+    };
+  }
+
+  function processIncomingTxn(t) {
+    scored.push(t);
+    if (scored.length > 300) scored.shift();
+
+    if (t.decision === "safe") approvedN++;
+    else if (t.decision === "review") reviewN++;
+    else blockedN++;
+
+    pulsePoints.push(t.score);
+    pulsePoints.shift();
+    drawPulse();
+
+    const feed = $("feed");
+    const empty = $("feedEmpty");
+    if (empty) empty.remove();
+
+    feed.insertBefore(renderRow(t), feed.firstChild);
+    while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+
+    applyFilter();
+    updateStats();
+
+    if (!selectedId && scored.length === 1) {
+      selectTxn(t.id);
+    }
+  }
+
+  function drawPulse() {
+    const svg = $("pulseSvg");
+    const w = 400, h = 44;
+    const step = w / (pulsePoints.length - 1);
+    const pts = pulsePoints.map((v, i) => (i * step).toFixed(1) + "," + (h - (v / 100) * h).toFixed(1)).join(" ");
+    const last = pulsePoints[pulsePoints.length - 1];
+    const color = last >= 70 ? "var(--block)" : (last >= 35 ? "var(--review)" : "var(--accent)");
+    svg.innerHTML = '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+
+  function renderRow(t) {
+    const row = document.createElement("div");
+    row.className = "row enter";
+    row.tabIndex = 0;
+    row.dataset.id = t.id;
+    row.dataset.decision = t.decision;
+    row.innerHTML =
+      '<div class="time">' + t.time + '</div>' +
+      '<div class="meta"><div class="amt">' + fmtINR(t.amount) + '</div>' +
+        '<div class="merch">' + t.merch.name + '</div>' +
+        '<div class="ctx">' + t.channel + ' · ' + t.geo + '</div></div>' +
+      '<div class="score ' + t.decision + '">' + t.score + '</div>' +
+      '<div><span class="badge ' + t.decision + '">' + (t.decision === "block" ? "Block" : t.decision === "review" ? "MFA" : "Approve") + '</span></div>';
+    
+    row.addEventListener("click", () => selectTxn(t.id));
+    row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectTxn(t.id); } });
+    return row;
+  }
+
+  function selectTxn(id) {
+    selectedId = id;
+    document.querySelectorAll(".row").forEach(r => r.classList.toggle("selected", r.dataset.id === id));
+    const t = scored.find(x => x.id === id);
+    if (t) renderReceipt(t);
+  }
+
+  function renderReceipt(t) {
+    const wrap = $("receiptWrap");
+    const groupOrder = ["tabular", "graph", "sequence"];
+    let groupsHtml = "";
+    groupOrder.forEach(g => {
+      const lines = (t.factors || []).filter(f => f.g === g);
+      if (!lines.length) return;
+      const gSum = t.groups ? t.groups[g] : 0;
+      groupsHtml += '<div class="r-group"><div class="r-group-lbl"><span>' + groupLabel[g] + '</span><span>' + (gSum > 0 ? "+" : "") + gSum + '</span></div>';
+      lines.forEach(f => {
+        const cls = f.pts > 0 ? "pos" : "neg";
+        groupsHtml += '<div class="r-line"><span class="lbl">' + f.label + '</span><span class="dots"></span><span class="pts ' + cls + '">' + (f.pts > 0 ? "+" : "") + f.pts + '</span></div>';
+      });
+      groupsHtml += '</div>';
+    });
+
+    const decLabel = t.decision === "block" ? "Block · Investigator Queue" : (t.decision === "review" ? "Step-Up MFA Challenge" : "Approve Transaction");
+
+    wrap.innerHTML =
+      '<div class="receipt">' +
+        '<div class="r-head"><div class="id">' + t.id + ' · ' + t.time + '</div>' +
+          '<div class="merch">' + t.merch.name + '</div>' +
+          '<div class="amt">' + fmtINR(t.amount) + ' · ' + t.channel + '</div></div>' +
+        groupsHtml +
+        '<div class="r-total"><span class="lbl">Composite Risk Score</span><span class="val ' + t.decision + '">' + t.score + '</span></div>' +
+        '<div class="r-decision ' + t.decision + '">' + decLabel + '</div>' +
+        '<div class="r-latency">Tree SHAP Scored in ' + (t.latency || 42) + 'ms · Device: ' + t.device + ' · ' + t.geo + '</div>' +
+      '</div>';
+  }
+
+  function updateStats() {
+    $("statSafe").textContent = approvedN;
+    $("statReview").textContent = reviewN;
+    $("statBlock").textContent = blockedN;
+  }
+
+  function applyFilter() {
+    document.querySelectorAll(".row").forEach(r => {
+      r.style.display = (activeFilter === "all" || r.dataset.decision === activeFilter) ? "grid" : "none";
+    });
+  }
+
+  // ---------- Controls ----------
+  $("simModalBtn").addEventListener("click", () => $("simModal").classList.add("active"));
+  $("simModalClose").addEventListener("click", () => $("simModal").classList.remove("active"));
+  $("simCancelBtn").addEventListener("click", () => $("simModal").classList.remove("active"));
+
+  $("simForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const payload = {
+      amount: parseFloat($("inpAmt").value) || 50000,
+      oldbalanceOrg: parseFloat($("inpBalance").value) || 10000,
+      channel: $("inpChannel").value,
+      merch_name: $("inpMerch").value || "Custom Payee",
+      merch_category: $("inpCat").value || "General",
+      geo_location: $("inpGeo").value || "Bengaluru, IN",
+      is_high_risk: $("chkHighRisk").checked,
+      mule_ring_flag: $("chkMule").checked,
+      is_new_device: $("chkDevice").checked,
+      velocity_5m: parseInt($("inpVel").value, 10) || 1,
+      biometric_sigma: parseFloat($("inpBio").value) || 0.5
+    };
+
+    fetch("/api/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(res => res.json()).then(txn => {
+      processIncomingTxn(txn);
+      selectTxn(txn.id);
+      $("simModal").classList.remove("active");
+    }).catch(() => {
+      const isFraud = payload.amount > payload.oldbalanceOrg || payload.mule_ring_flag || payload.is_high_risk;
+      const score = isFraud ? rint(75, 99) : rint(5, 30);
+      const decision = score >= 70 ? "block" : (score >= 35 ? "review" : "safe");
+      const txn = {
+        id: "TXN-SIM" + rint(100, 999),
+        time: new Date().toLocaleTimeString("en-IN", { hour12: false }),
+        amount: payload.amount,
+        merch: { name: payload.merch_name, cat: payload.merch_category },
+        channel: payload.channel,
+        geo: payload.geo_location,
+        device: payload.is_new_device ? "New unrecognized device" : "Known device",
+        score: score,
+        decision: decision,
+        factors: [
+          { g: "tabular", label: `Amount ₹${payload.amount.toLocaleString()} evaluated`, pts: isFraud ? 25 : -8 },
+          { g: "graph", label: payload.mule_ring_flag ? "GNN Mule ring cluster flag" : "Clean trust graph", pts: payload.mule_ring_flag ? 28 : -10 },
+          { g: "sequence", label: `Biometric deviation ${payload.biometric_sigma}σ`, pts: payload.biometric_sigma > 2 ? 15 : -5 }
+        ],
+        groups: { tabular: isFraud ? 25 : -8, graph: payload.mule_ring_flag ? 28 : -10, sequence: payload.biometric_sigma > 2 ? 15 : -5 },
+        latency: rint(25, 45)
+      };
+      processIncomingTxn(txn);
+      selectTxn(txn.id);
+      $("simModal").classList.remove("active");
+    });
+  });
+
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeFilter = btn.dataset.filter;
+      applyFilter();
+    });
+  });
+
+  $("toggleBtn").addEventListener("click", () => {
+    running = !running;
+    $("toggleBtn").textContent = running ? "Pause" : "Resume";
+    $("statusDot").className = "dot " + (running ? "live" : "paused");
+    $("statusText").textContent = running ? "LIVE STREAM" : "PAUSED";
+    if (running && !isApiConnected) startFallbackSimulation();
+  });
+
+  $("resetBtn").addEventListener("click", () => {
+    scored = []; approvedN = 0; reviewN = 0; blockedN = 0;
+    pulsePoints = new Array(60).fill(4);
+    selectedId = null;
+    drawPulse();
+    updateStats();
+    $("feed").innerHTML = '<div class="empty" id="feedEmpty">Waiting for stream…</div>';
+    $("receiptWrap").innerHTML = '<div class="receipt-empty"><span class="big">🧾</span>Select any transaction from the stream<br>to view Tree SHAP feature attribution.</div>';
+  });
+
+  drawPulse();
+  initStream();
+})();
+</script>
+</body>
+</html>
